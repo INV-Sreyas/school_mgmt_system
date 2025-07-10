@@ -84,10 +84,15 @@ WSGI_APPLICATION = 'schl_mgmt.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'school_mgmt_db',
+        'USER': 'root',
+        'PASSWORD': 'NanduSreyas@03',
+        'HOST': 'localhost',
+        'PORT': '3306',
     }
 }
+
 
 
 # Password validation

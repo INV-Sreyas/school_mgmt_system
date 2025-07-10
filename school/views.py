@@ -6,9 +6,11 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view, permission_classes
 from .models import Teacher
 from .models import Student
+from accounts.utils import is_admin, is_teacher, is_student
 import json
 
-# 🔐 Protected View (already present)
+# 🔐 Protected View 
+# only for testing the access token no need in the functionality at all
 class ProtectedTestView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -40,6 +42,8 @@ def create_teacher(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def list_teachers(request):
+    if not is_admin(request.user):
+        return JsonResponse({'error': 'Forbidden: Only admins can perform this action'}, status=403)
     teachers = Teacher.objects.all().values()
     return JsonResponse(list(teachers), safe=False)
 
@@ -48,6 +52,8 @@ def list_teachers(request):
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
 def update_teacher(request, teacher_id):
+    if not is_admin(request.user):
+        return JsonResponse({'error': 'Forbidden: Only admins can perform this action'}, status=403)
     data = json.loads(request.body)
     try:
         teacher = Teacher.objects.get(id=teacher_id)
@@ -64,6 +70,8 @@ def update_teacher(request, teacher_id):
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def delete_teacher(request, teacher_id):
+    if not is_admin(request.user):
+        return JsonResponse({'error': 'Forbidden: Only admins can perform this action'}, status=403)
     try:
         teacher = Teacher.objects.get(id=teacher_id)
         teacher.delete()
@@ -77,6 +85,8 @@ def delete_teacher(request, teacher_id):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_student(request):
+    if not is_admin(request.user):
+        return JsonResponse({'error': 'Forbidden: Only admins can perform this action'}, status=403)
     data = json.loads(request.body)
     try:
         teacher = Teacher.objects.get(id=data['assigned_teacher']) if data.get('assigned_teacher') else None
@@ -101,6 +111,8 @@ def create_student(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def list_students(request):
+    if not is_admin(request.user):
+        return JsonResponse({'error': 'Forbidden: Only admins can perform this action'}, status=403)
     students = Student.objects.all().values()
     return JsonResponse(list(students), safe=False)
 
@@ -110,6 +122,8 @@ def list_students(request):
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
 def update_student(request, student_id):
+    if not is_admin(request.user):
+        return JsonResponse({'error': 'Forbidden: Only admins can perform this action'}, status=403)
     data = json.loads(request.body)
     try:
         student = Student.objects.get(id=student_id)
@@ -132,9 +146,61 @@ def update_student(request, student_id):
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def delete_student(request, student_id):
+    if not is_admin(request.user):
+        return JsonResponse({'error': 'Forbidden: Only admins can perform this action'}, status=403)
     try:
         student = Student.objects.get(id=student_id)
         student.delete()
         return JsonResponse({'message': 'Student deleted successfully'})
     except Student.DoesNotExist:
         return JsonResponse({'error': 'Student not found'}, status=404)
+    
+
+# The method for teacher to view their own student
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_assigned_students(request):
+    if not is_teacher(request.user):
+        return JsonResponse({'error': 'Forbidden: Only teachers allowed'}, status=403)
+
+    try:
+        teacher = Teacher.objects.get(user=request.user)
+        students = Student.objects.filter(assigned_teacher=teacher).values()
+        return JsonResponse(list(students), safe=False)
+    except Teacher.DoesNotExist:
+        return JsonResponse({'error': 'Teacher profile not found'}, status=404)
+    
+
+# The method for student to see their own profile and update fields
+@api_view(['GET', 'PUT'])
+@permission_classes([IsAuthenticated])
+def student_profile(request):
+    if not is_student(request.user):
+        return JsonResponse({'error': 'Forbidden: Only students can access this'}, status=403)
+
+    try:
+        student = Student.objects.get(user=request.user)
+    except Student.DoesNotExist:
+        return JsonResponse({'error': 'Student profile not found'}, status=404)
+
+    if request.method == 'GET':
+        data = {
+            'first_name': student.first_name,
+            'last_name': student.last_name,
+            'email': student.email,
+            'phone_number': student.phone_number,
+            'roll_number': student.roll_number,
+            'student_class': student.student_class,
+            'date_of_birth': student.date_of_birth,
+            'admission_date': student.admission_date,
+            'status': student.status,
+        }
+        return JsonResponse(data)
+
+    elif request.method == 'PUT':
+        data = json.loads(request.body)
+        for field in ['first_name', 'last_name', 'email', 'phone_number', 'student_class', 'status']:
+            if field in data:
+                setattr(student, field, data[field])
+        student.save()
+        return JsonResponse({'message': 'Profile updated successfully'})

@@ -16,29 +16,9 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from school.views import (
-    ProtectedTestView,
-    create_teacher,
-    list_teachers,
-    update_teacher,
-    delete_teacher,
-    create_student,
-    list_students,
-    update_student,
-    delete_student
-)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("api/accounts/", include("accounts.urls")),
     path("api/school/", include("school.urls")),
-    path('protected/', ProtectedTestView.as_view()),
-    path('teachers/', list_teachers),
-    path('teachers/create/', create_teacher),
-    path('teachers/update/<int:teacher_id>/', update_teacher),
-    path('teachers/delete/<int:teacher_id>/', delete_teacher),
-    path("students/create/", create_student),
-    path("students/", list_students),
-    path("students/update/<int:student_id>/", update_student),
-    path("students/delete/<int:student_id>/", delete_student),
 ]
