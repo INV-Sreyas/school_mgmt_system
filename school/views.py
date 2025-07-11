@@ -4,10 +4,15 @@ from rest_framework.permissions import IsAuthenticated
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view, permission_classes
+from django.contrib.auth.models import User
 from .models import Teacher
 from .models import Student
+from accounts.models import UserProfile
 from accounts.utils import is_admin, is_teacher, is_student
 import json
+import csv
+from django.http import HttpResponse
+ 
 
 # 🔐 Protected View 
 # only for testing the access token no need in the functionality at all
@@ -24,17 +29,30 @@ class ProtectedTestView(APIView):
 def create_teacher(request):
     data = json.loads(request.body)
     try:
-        teacher = Teacher.objects.create(
-            first_name=data['first_name'],
-            last_name=data['last_name'],
+        # 1. Create user
+        user = User.objects.create_user(
+            username=data['username'],      # Add this field in your request
+            password=data['password'],      # Add this field in your request
             email=data['email'],
+            first_name=data['first_name'],
+            last_name=data['last_name']
+        )
+
+        # 2. Add user role
+        UserProfile.objects.create(user=user, role='teacher')
+
+        # 3. Create teacher and link to user
+        teacher = Teacher.objects.create(
+            user=user,  # Make sure your Teacher model has this FK
             phone_number=data['phone_number'],
             subject_specialization=data['subject_specialization'],
             employee_id=data['employee_id'],
             date_of_joining=data['date_of_joining'],
             status=data['status']
         )
+
         return JsonResponse({'message': 'Teacher created successfully'}, status=201)
+
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
 
@@ -85,12 +103,24 @@ def delete_teacher(request, teacher_id):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_student(request):
-    if not is_admin(request.user):
-        return JsonResponse({'error': 'Forbidden: Only admins can perform this action'}, status=403)
     data = json.loads(request.body)
     try:
-        teacher = Teacher.objects.get(id=data['assigned_teacher']) if data.get('assigned_teacher') else None
+        # ✅ First create Django User
+        user = User.objects.create_user(
+            username=data['username'],
+            password=data['password'],
+            email=data['email'],
+            first_name=data['first_name'],
+            last_name=data['last_name']
+        )
+
+        # ✅ Link the user to UserProfile
+        UserProfile.objects.create(user=user, role='student')
+
+        # ✅ Now create the Student
+        teacher = Teacher.objects.get(id=data['assigned_teacher'])
         student = Student.objects.create(
+            user=user,
             first_name=data['first_name'],
             last_name=data['last_name'],
             email=data['email'],
@@ -103,6 +133,7 @@ def create_student(request):
             assigned_teacher=teacher
         )
         return JsonResponse({'message': 'Student created successfully'}, status=201)
+
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
 
@@ -204,3 +235,62 @@ def student_profile(request):
                 setattr(student, field, data[field])
         student.save()
         return JsonResponse({'message': 'Profile updated successfully'})
+
+
+# csv export for teacher
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def export_teachers_csv(request):
+    if not is_admin(request.user):
+        return JsonResponse({'error': 'Forbidden: Only admins can export data'}, status=403)
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="teachers.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(['ID', 'Name', 'Email', 'Phone Number', 'Specialization', 'Employee ID', 'Joining Date', 'Status'])
+
+    for teacher in Teacher.objects.all():
+        writer.writerow([
+            teacher.id,
+            f"{teacher.user.first_name} {teacher.user.last_name}",
+            teacher.user.email,
+            teacher.phone_number,
+            teacher.subject_specialization,
+            teacher.employee_id,
+            teacher.date_of_joining,
+            teacher.status,
+        ])
+
+    return response
+
+
+# csv export for students
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def export_students_csv(request):
+    if not is_admin(request.user):
+        return JsonResponse({'error': 'Forbidden: Only admins can export data'}, status=403)
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="students.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(['ID', 'Name', 'Email', 'Phone Number', 'Roll Number', 'Class', 'DOB', 'Admission Date', 'Status', 'Assigned Teacher'])
+
+    for student in Student.objects.all():
+        writer.writerow([
+            student.id,
+            f"{student.user.first_name} {student.user.last_name}",
+            student.user.email,
+            student.phone_number,
+            student.roll_number,
+            student.student_class,
+            student.date_of_birth,
+            student.admission_date,
+            student.status,
+            student.assigned_teacher.user.get_full_name() if student.assigned_teacher else "",
+        ])
+
+    return response
