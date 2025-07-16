@@ -8,9 +8,14 @@ from django.contrib.auth.models import User
 from .models import Teacher
 from .models import Student
 from accounts.models import UserProfile
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.shortcuts import render, redirect
 from accounts.utils import is_admin, is_teacher, is_student
+from datetime import datetime
 import json
 import csv
+import io
 from django.http import HttpResponse
  
 
@@ -294,3 +299,38 @@ def export_students_csv(request):
         ])
 
     return response
+
+
+@csrf_exempt
+# @login_required
+def upload_students_csv(request):
+    if request.method == 'POST':
+        csv_file = request.FILES.get('file')
+
+        if not csv_file or not csv_file.name.endswith('.csv'):
+            return JsonResponse({'error': 'Invalid or missing CSV file'}, status=400)
+
+        try:
+            decoded_file = csv_file.read().decode('utf-8')
+            io_string = io.StringIO(decoded_file)
+            reader = csv.DictReader(io_string)
+
+            for row in reader :
+                Student.objects.create(
+                    first_name=row['first_name'],
+                    last_name=row['last_name'],
+                    email=row['email'],
+                    phone_number=row['phone_number'],
+                    roll_number=row['roll_number'],
+                    student_class=row['student_class'],
+                    date_of_birth=datetime.strptime(row['date_of_birth'], "%Y-%m-%d").date(),
+                    admission_date=datetime.strptime(row['admission_date'], "%Y-%m-%d").date(),
+                    status=row['status'],
+                    assigned_teacher=Teacher.objects.filter(id=row['assigned_teacher_id']).first()  # safe FK handling
+                )
+
+            return JsonResponse({'message': 'Students uploaded successfully!'})
+        except Exception as e:
+            return JsonResponse({'error': f'Upload failed: {str(e)}'}, status=500)
+
+    return JsonResponse({'error': 'Only POST allowed'}, status=405)

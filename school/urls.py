@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (ProtectedTestView,list_teachers, create_teacher,update_teacher,
                     delete_teacher, create_student, list_students, update_student, 
                     delete_student, list_assigned_students, student_profile,export_teachers_csv,
-                    export_students_csv)
+                    export_students_csv, upload_students_csv)
 
 urlpatterns = [
     path("protected/", ProtectedTestView.as_view(), name="protected"),
@@ -18,5 +18,5 @@ urlpatterns = [
     path("student/profile/", student_profile, name="student-profile"),
     path('export/teachers/', export_teachers_csv),
     path('export/students/', export_students_csv),
+    path('upload_csv/', upload_students_csv, name='upload_csv'),
 ]
-
