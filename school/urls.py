@@ -6,7 +6,7 @@ from .views import (ProtectedTestView,list_teachers, create_teacher,update_teach
 
 urlpatterns = [
     path("protected/", ProtectedTestView.as_view(), name="protected"),
-     path('teachers/', list_teachers),
+    path('teachers/', list_teachers),
     path("teachers/create/", create_teacher, name="create-teacher"),
     path('teachers/update/<int:teacher_id>/', update_teacher),
     path('teachers/delete/<int:teacher_id>/', delete_teacher),

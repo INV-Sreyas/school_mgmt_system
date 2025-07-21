@@ -25,8 +25,8 @@ class Student(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
 
     STATUS_CHOICES = (
-        ('Active', 'Active'),
-        ('Inactive', 'Inactive'),
+        ('Active', 'active'),
+        ('Inactive', 'inactive'),
     )
 
     first_name = models.CharField(max_length=50)

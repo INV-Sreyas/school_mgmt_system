@@ -66,7 +66,7 @@ ROOT_URLCONF = 'schl_mgmt.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / "templates"],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -149,5 +149,8 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'sreyasvenugopalnair@gmail.com'
-EMAIL_HOST_PASSWORD = 'qgbn zxjk jgjd tnov'
+EMAIL_HOST_PASSWORD = 'svak kolm xyng gxfv'
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']

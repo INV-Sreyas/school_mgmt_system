@@ -17,6 +17,7 @@ import json
 import csv
 import io
 from django.http import HttpResponse
+
  
 
 # 🔐 Protected View 
@@ -32,34 +33,79 @@ class ProtectedTestView(APIView):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_teacher(request):
-    data = json.loads(request.body)
-    try:
-        # 1. Create user
-        user = User.objects.create_user(
-            username=data['username'],      # Add this field in your request
-            password=data['password'],      # Add this field in your request
-            email=data['email'],
-            first_name=data['first_name'],
-            last_name=data['last_name']
-        )
+    if request.method == "POST":
+        data = json.loads(request.body)
+        print("Incoming teacher creation data:", data)
 
-        # 2. Add user role
-        UserProfile.objects.create(user=user, role='teacher')
+        username = data.get("username")
+        email = data.get("email")
+        password = data.get("password")
 
-        # 3. Create teacher and link to user
-        teacher = Teacher.objects.create(
-            user=user,  # Make sure your Teacher model has this FK
-            phone_number=data['phone_number'],
-            subject_specialization=data['subject_specialization'],
-            employee_id=data['employee_id'],
-            date_of_joining=data['date_of_joining'],
-            status=data['status']
-        )
+        # ✅ Check for required fields
+        required_fields = ["username", "email", "password", "first_name", "last_name",
+                           "phone_number", "subject_specialization", "employee_id", "date_of_joining"]
+        missing_fields = [field for field in required_fields if not data.get(field)]
+        if missing_fields:
+            return JsonResponse({"error": f"Missing required fields: {', '.join(missing_fields)}"}, status=400)
 
-        return JsonResponse({'message': 'Teacher created successfully'}, status=201)
+        try:
+            # 🔍 Check if user exists
+            if User.objects.filter(username=username).exists():
+                return JsonResponse({"error": "User already exists"}, status=400)
 
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+            # ✅ Create user
+            user = User.objects.create_user(username=username, email=email, password=password)
+            user.first_name = data.get("first_name", "")
+            user.last_name = data.get("last_name", "")
+            user.save()
+
+            # 🔍 Double-check UserProfile not already there
+            # if UserProfile.objects.filter(user=user).exists():
+            #     return JsonResponse({"error": f"UserProfile already exists for this user: {user.first_name, user.id}"}, status=400)
+
+            # ✅ Create UserProfile
+            # UserProfile.objects.create(
+            #     user=user,
+            #     role="teacher"
+            # )
+
+            profile, created = UserProfile.objects.get_or_create(user=user)
+            if not created:
+                profile.role = "teacher"
+                profile.save()
+
+
+            # 🔍 Ensure no Teacher already linked
+            if Teacher.objects.filter(user=user).exists():
+                return JsonResponse({"error": "Teacher already exists for this user"}, status=400)
+
+            # ✅ Create Teacher
+            Teacher.objects.create(
+                user=user,
+                first_name=data["first_name"],
+                last_name=data["last_name"],
+                email=email,
+                phone_number=data["phone_number"],
+                subject_specialization=data["subject_specialization"],
+                employee_id=data["employee_id"],
+                date_of_joining=data["date_of_joining"],
+                status=data.get("status", "Active")
+            )
+
+            return JsonResponse({"message": "Teacher created successfully"}, status=201)
+
+        except Exception as e:
+            print("Exception occurred:", str(e))
+            import traceback
+            traceback.print_exc()
+
+            # # ❌ Rollback: delete user if partial creation
+            # if 'user' in locals():
+            #     user.delete()
+
+            return JsonResponse({"error": str(e)}, status=500)
+
+
 
 # ✅ List Teachers
 @api_view(['GET'])
