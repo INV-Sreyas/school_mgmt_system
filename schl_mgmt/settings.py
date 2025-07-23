@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'accounts',
     'school',
+    'exams'
 ]
 
 REST_FRAMEWORK = {

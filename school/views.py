@@ -149,45 +149,83 @@ def delete_teacher(request, teacher_id):
         return JsonResponse({'error': 'Teacher not found'}, status=404)
 
 
-# ✅ Create Student
+#@csrf_exempt
 @csrf_exempt
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_student(request):
-    data = json.loads(request.body)
-    try:
-        # ✅ First create Django User
-        user = User.objects.create_user(
-            username=data['username'],
-            password=data['password'],
-            email=data['email'],
-            first_name=data['first_name'],
-            last_name=data['last_name']
-        )
+    if request.method == "POST":
+        data = json.loads(request.body)
+        print("Incoming student creation data:", data)
 
-        # ✅ Link the user to UserProfile
-        UserProfile.objects.create(user=user, role='student')
+        # ✅ Required fields check
+        required_fields = [
+            "username", "email", "password", "first_name", "last_name",
+            "phone_number", "roll_number", "student_class", "date_of_birth",
+            "admission_date", "assigned_teacher"
+        ]
+        missing_fields = [field for field in required_fields if not data.get(field)]
+        if missing_fields:
+            return JsonResponse({"error": f"Missing required fields: {', '.join(missing_fields)}"}, status=400)
 
-        # ✅ Now create the Student
-        teacher = Teacher.objects.get(id=data['assigned_teacher'])
-        student = Student.objects.create(
-            user=user,
-            first_name=data['first_name'],
-            last_name=data['last_name'],
-            email=data['email'],
-            phone_number=data['phone_number'],
-            roll_number=data['roll_number'],
-            student_class=data['student_class'],
-            date_of_birth=data['date_of_birth'],
-            admission_date=data['admission_date'],
-            status=data['status'],
-            assigned_teacher=teacher
-        )
-        return JsonResponse({'message': 'Student created successfully'}, status=201)
+        try:
+            # ✅ Check for existing user
+            if User.objects.filter(username=data["username"]).exists():
+                return JsonResponse({"error": "Username already exists"}, status=400)
+            if User.objects.filter(email=data["email"]).exists():
+                return JsonResponse({"error": "Email already exists"}, status=400)
 
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+            # ✅ Create User
+            user = User.objects.create_user(
+                username=data['username'],
+                password=data['password'],
+                email=data['email'],
+                first_name=data['first_name'],
+                last_name=data['last_name']
+            )
 
+            # ✅ Create or update UserProfile safely
+            profile, created = UserProfile.objects.get_or_create(user=user)
+            if not created:
+                profile.role = "student"
+                profile.save()
+            else:
+                profile.role = "student"
+                profile.save()
+
+            # ✅ Validate assigned teacher
+            try:
+                teacher = Teacher.objects.get(id=data['assigned_teacher'])
+            except Teacher.DoesNotExist:
+                return JsonResponse({"error": "Assigned teacher does not exist"}, status=400)
+
+            # ✅ Create Student
+            Student.objects.create(
+                user=user,
+                first_name=data['first_name'],
+                last_name=data['last_name'],
+                email=data['email'],
+                phone_number=data['phone_number'],
+                roll_number=data['roll_number'],
+                student_class=data['student_class'],
+                date_of_birth=data['date_of_birth'],
+                admission_date=data['admission_date'],
+                status=data.get('status', 'Active'),
+                assigned_teacher=teacher
+            )
+
+            return JsonResponse({'message': 'Student created successfully'}, status=201)
+
+        except Exception as e:
+            print("Exception occurred while creating student:", str(e))
+            import traceback
+            traceback.print_exc()
+
+            # # Optional rollback
+            # if 'user' in locals():
+            #     user.delete()
+
+            return JsonResponse({'error': str(e)}, status=500)
 
 # ✅ List Student
 @api_view(['GET'])
