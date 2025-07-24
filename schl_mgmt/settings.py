@@ -123,6 +123,12 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_CREDENTIALS = True
 
 
+#CSRF
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+]
+
+
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
