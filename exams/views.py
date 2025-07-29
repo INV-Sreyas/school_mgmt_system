@@ -71,6 +71,14 @@ def list_exams(request):
         return JsonResponse(list(exams), safe=False)
 
 
+@login_required
+def student_exam_list(request):
+    if request.user.userprofile.role != "student":
+        return JsonResponse({"error": "Unauthorized"}, status=403)
+
+    exams = Exam.objects.all().values("id", "title", "subject")
+    return JsonResponse(list(exams), safe=False)
+
 
 @login_required
 def get_exam_questions(request, exam_id):
@@ -101,6 +109,9 @@ def submit_exam(request, exam_id):
         except Exam.DoesNotExist:
             return JsonResponse({"error": "Exam not found"}, status=404)
 
+        if StudentExamSubmission.objects.filter(student=user, exam=exam).exists():
+            return JsonResponse({"error": "You have already submitted this exam."}, status=400)
+
         data = json.loads(request.body)
         answers = data.get("answers", [])  # List of {"question_id": int, "selected_option": "option1"}
 
@@ -123,3 +134,14 @@ def submit_exam(request, exam_id):
         submission.save()
 
         return JsonResponse({"message": "Exam submitted", "score": score})
+    
+
+@login_required
+def get_submission_score(request, exam_id):
+    user = request.user
+    try:
+        submission = StudentExamSubmission.objects.get(student=user, exam__id=exam_id)
+        return JsonResponse({"score": submission.score})
+    except StudentExamSubmission.DoesNotExist:
+        return JsonResponse({"error": "Submission not found."}, status=404)
+
