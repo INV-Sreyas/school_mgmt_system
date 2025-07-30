@@ -2,6 +2,8 @@ from django.shortcuts import render
 # views.py
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view, permission_classes
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 import json
@@ -11,7 +13,8 @@ from .models import Question, Exam
 
 
 @csrf_exempt
-@login_required
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def create_exam(request):
     if request.method == 'POST':
         user = request.user
@@ -35,7 +38,8 @@ def create_exam(request):
 
 
 @csrf_exempt
-@login_required
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def add_question(request):
     if request.method == 'POST':
         user = request.user
@@ -64,14 +68,16 @@ def add_question(request):
 
 
 
-@login_required
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def list_exams(request):
     if request.method == 'GET':
         exams = Exam.objects.all().values('id', 'title', 'subject', 'date_created')
         return JsonResponse(list(exams), safe=False)
 
 
-@login_required
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def student_exam_list(request):
     if request.user.userprofile.role != "student":
         return JsonResponse({"error": "Unauthorized"}, status=403)
@@ -80,7 +86,8 @@ def student_exam_list(request):
     return JsonResponse(list(exams), safe=False)
 
 
-@login_required
+@api_view(['POST','GET'])
+@permission_classes([IsAuthenticated])
 def get_exam_questions(request, exam_id):
     try:
         exam = Exam.objects.get(id=exam_id)
@@ -97,7 +104,8 @@ from .models import StudentExamSubmission, Answer, Question
 
 
 @csrf_exempt
-@login_required
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def submit_exam(request, exam_id):
     if request.method == 'POST':
         user = request.user
@@ -136,7 +144,8 @@ def submit_exam(request, exam_id):
         return JsonResponse({"message": "Exam submitted", "score": score})
     
 
-@login_required
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_submission_score(request, exam_id):
     user = request.user
     try:
